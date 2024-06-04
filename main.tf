@@ -516,37 +516,3 @@ resource "aws_lambda_function" "quarantine_function" {
 
 
 }
-
-######################################################
-
-# resource "aws_cloudwatch_event_rule" "every_half_hours" {
-#   name                = var.event_name_1
-#   description         = var.event_description_1
-#   schedule_expression = var.event_schedule_expression_1
-# }
-
-# resource "aws_cloudwatch_event_target" "event_target_for_quarantine" {
-#   rule      = aws_cloudwatch_event_rule.every_half_hours.name
-#   target_id = var.quarantine_function
-#   arn       = aws_lambda_function.quarantine_function.arn
-# }
-
-# resource "aws_lambda_permission" "allow_cloudwatch_to_trigger_lambda" {
-#   statement_id  = "AllowExecutionFromCloudWatch"
-#   action        = var.lambda_action
-#   function_name = aws_lambda_function.quarantine_function.function_name
-#   principal     = var.lambda_update_principal
-#   source_arn    = aws_cloudwatch_event_rule.every_half_hours.arn
-# }
-
-# resource "aws_lambda_permission" "allow_terraform_bucket-2nd" {
-#    count         = length(var.quarantine_function)
-#   statement_id  = "AllowExecutionFromS3Bucket_${element(var.quarantine_function, count.index)}"
-#   action        = var.lambda_action
-#  # function_name = aws_lambda_function.scan_file.arn
-#   function_name = aws_lambda_function.quarantine_function.arn
-#   principal     = var.lambda_scan_principal
-#   source_arn    = "arn:aws:s3:::${element(var.quarantine_function, count.index)}"
-# }
-
-######################################################

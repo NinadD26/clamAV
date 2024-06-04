@@ -35,8 +35,8 @@ variable "quarantine_handler" {
 
 variable "lambda_runtime" {
   description = "Identifier of the function's runtime."
-  # default     = "python3.7"
-  default = "python3.9"
+  default     = "python3.7"
+  #default = "python3.9"
   type = string
 }
 
