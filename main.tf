@@ -299,9 +299,9 @@ resource "aws_lambda_permission" "allow_terraform_bucket" {
   source_arn    = "arn:aws:s3:::${element(var.buckets_to_scan, count.index)}"
 }
 
-# -----------------------------
+# ---------------------------------
 # Allow the S3 bucket to send notifications to the lambda function
-# -----------------------------
+# --------------------------------
 
 resource "aws_s3_bucket_notification" "new_file_notification" {
   count  = length(var.buckets_to_scan)
