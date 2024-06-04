@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "buckets_to_scan" {
   description = "The buckets which need scanning."
   type        = list(string)
-  default     = ["scaninputbucket-1", "scaninputbucket-7"]
+  default     = ["s-caninputbucket-1","s-caninputbucket-7"]
 }
 
 # -----------------------------
@@ -167,7 +167,7 @@ variable "infected_notification_sns_name" {
 ##############qurantine######
 variable "quarantine_bucket" {
   type    = string
-  default = "qurantine-buckt"
+  default = "qurantine-bckt"
 }
 
 

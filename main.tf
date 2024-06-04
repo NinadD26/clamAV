@@ -1,6 +1,6 @@
 provider "aws" {
   region  = var.aws_region
-  profile = "SandoxTeamA"
+  profile = "SandboxTeamA"
 }
 
 locals {
