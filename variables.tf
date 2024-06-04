@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "buckets_to_scan" {
   description = "The buckets which need scanning."
   type        = list(string)
-  default     = ["s-caninputbucket-1","s-caninputbucket-7"]
+  default     = ["scaninputbucket-1", "scaninputbucket-7"]
 }
 
 # -----------------------------
@@ -35,8 +35,8 @@ variable "quarantine_handler" {
 
 variable "lambda_runtime" {
   description = "Identifier of the function's runtime."
-  default     = "python3.7"
-  # default = "python3.9"
+  # default     = "python3.7"
+  default = "python3.9"
   type = string
 }
 
