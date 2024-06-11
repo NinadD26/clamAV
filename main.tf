@@ -314,7 +314,7 @@ resource "aws_lambda_permission" "allow_terraform_bucket" {
 # ---------------------------------
 # Allow the S3 bucket to send notifications to the lambda function
 # --------------------------------
-#notifications are configured to trigger a Lambda function (scan_file) whenever certain events occur within buckets.
+#notifications are configured to trigger a Lambda function (scan_file) whenever certain events occur(upload file) within buckets.
 resource "aws_s3_bucket_notification" "new_file_notification" {
   count  = length(var.buckets_to_scan) #check value in variable.tf
   bucket = element(var.buckets_to_scan, count.index) 
@@ -345,7 +345,7 @@ resource "aws_s3_bucket_policy" "buckets_to_scan" {
       "NotPrincipal": {
           "AWS": [
               "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root",
-              "arn:aws:sts::${data.aws_caller_identity.current.account_id}:assumed-role/${aws_iam_role.scan.name}/${aws_lambda_function.scan_file.function_name}",
+              "arn:aws:sts::${data.aws_caller_identity.current.account_id}:assumed-role/${aws_iam_role.scan.name}/${aws_lambda_function.scan_file.function_name}", 
               "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${aws_iam_role.scan.name}"
           ]
       },
@@ -353,7 +353,7 @@ resource "aws_s3_bucket_policy" "buckets_to_scan" {
       "Resource": "arn:aws:s3:::${element(var.buckets_to_scan, count.index)}/*",
       "Condition": {
           "StringNotEquals": {
-              "s3:ExistingObjectTag/av-status": "CLEAN"
+              "s3:ExistingObjectTag/av-status": "CLEAN"    #policy effectively restricts access to objects within the S3 buckets, denying GetObject actions to the specified principals unless the object has a specific tag (av-status equals "CLEAN").
           }
       }
     }
@@ -367,14 +367,15 @@ POLICY
 # -----------------------------
 # Create SNS topic
 # -----------------------------
+#allows for conditional creation of an SNS topic where you want to enable or disable notifications
 resource "aws_sns_topic" "infected_sns_topic" {
   count = var.infected_notification == "true" ? 1 : 0
   name  = var.infected_notification_sns_name
 }
-
+#manage permissions for an SNS topic, specifically for the scenario where var.infected_notification is set to "true"
 data "aws_iam_policy_document" "my_custom_sns_policy_document" {
-  count     = var.infected_notification == "true" ? 1 : 0
-  policy_id = "__default_policy_ID"
+  count     = var.infected_notification == "true" ? 1 : 0   # Determines whether the aws_iam_policy_document resource should be created. var.infected_notification is true==> create 
+  policy_id = "__default_policy_ID"    #used internally by AWS and can be referenced when attaching the policy to other resources.
 
   statement {
     actions = [
@@ -394,7 +395,7 @@ data "aws_iam_policy_document" "my_custom_sns_policy_document" {
       variable = "AWS:SourceOwner"
 
       values = [
-        var.account_id,
+        var.account_id,    #check variables.tf 
       ]
     }
 
@@ -406,32 +407,32 @@ data "aws_iam_policy_document" "my_custom_sns_policy_document" {
     }
 
     resources = [
-      aws_sns_topic.infected_sns_topic[count.index].arn,
+      aws_sns_topic.infected_sns_topic[count.index].arn,   #resources to which the policy applies
     ]
 
     sid = "__default_statement_ID"
   }
 }
-
+#policy is applied to an SNS topic (infected_sns_topic) and is conditionally created based on the value of var.infected_notification
 resource "aws_sns_topic_policy" "my_sns_topic_policy" {
   count  = var.infected_notification == "true" ? 1 : 0
   arn    = aws_sns_topic.infected_sns_topic[count.index].arn
-  policy = data.aws_iam_policy_document.my_custom_sns_policy_document[count.index].json
+  policy = data.aws_iam_policy_document.my_custom_sns_policy_document[count.index].json  #policy document that defines the permissions for the SNS topic. attaches a custom IAM policy document to an SNS topic, controlling who can subscribe, publish, modify attributes, and perform other actions on the topic
 }
-
+# sets up an email subscription to an SNS topic, allowing the specified email address to receive notifications from the topic.
 resource "aws_sns_topic_subscription" "Email_sub" {
-  count     = var.infected_notification == "true" ? 1 : 0
-  topic_arn = aws_sns_topic.infected_sns_topic[count.index].arn
+  count     = var.infected_notification == "true" ? 1 : 0   #var.infected_notification is "true", count is set to 1, indicating the subscription should be created. 
+  topic_arn = aws_sns_topic.infected_sns_topic[count.index].arn  # SNS topic to which the subscription is made.
   protocol  = "email"
   endpoint  = var.email_name
 }
 
-
+# (SNS) Topic resource named All_Notification.
 resource "aws_sns_topic" "All_Notification" {
-  count = var.All_Notification == "true" ? 1 : 0
+  count = var.All_Notification == "true" ? 1 : 0  #var.All_Notification is set to "true", then count is set to 1 & notification created
   name  = var.All_Notification_sns_name
 }
-
+##manage permissions for an SNS topic, specifically for the scenario where var.All_notification is set to "true"
 data "aws_iam_policy_document" "my_custom_sns_policy_document1" {
   count     = var.All_Notification == "true" ? 1 : 0
   policy_id = "__default_policy_ID"
@@ -473,6 +474,7 @@ data "aws_iam_policy_document" "my_custom_sns_policy_document1" {
   }
 }
 
+# policy is applied to an SNS topic (All_Notification) and is conditionally created based on the value of var.create_resources.
 resource "aws_sns_topic_policy" "my_sns_topic_policy1" {
   count  = var.create_resources == "true" ? 1 : 0
   arn    = aws_sns_topic.All_Notification[count.index].arn
@@ -487,10 +489,10 @@ resource "aws_sns_topic_subscription" "Email_sub1" {
 }
 
 ###################################################
-
+#qurantine bucket
 resource "aws_s3_bucket" "output_bucket_name" {
   # count  = var.quarantine_object == "true" ? 1 :0
-  bucket = var.quarantine_bucket
+  bucket = var.quarantine_bucket # check value in variable.tf
 }
 
 
