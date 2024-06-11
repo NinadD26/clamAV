@@ -61,7 +61,8 @@ data "aws_iam_policy_document" "update" {
     effect = "Allow"
   }
 }
-## specifies statment that allows the AWS Lambda service to assume a role , policy is typically attached to roles that need to be assumed by AWS Lambda functions for them to access other AWS services or resources on behalf of the role owner.
+## specifies statment that allows the AWS Lambda service to assume a role , policy is typically attached to roles that need to be assumed by AWS Lambda functions 
+#for them to access other AWS services or resources on behalf of the role
 data "aws_iam_policy_document" "assume_role_policy" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -92,7 +93,8 @@ data "aws_iam_policy_document" "scan" {
     ]
     effect = "Allow"
   }
-#grants permissions Applies to a primary S3 bucket identified by clamav_definitions.bucket and an output bucket identified by ${aws_s3_bucket.output_bucket_name.bucket}, along with any additional buckets specified in var.buckets_to_scan.
+#grants permissions Applies to a primary S3 bucket identified by clamav_definitions.bucket and an output bucket identified by ${aws_s3_bucket.output_bucket_name.bucket}, 
+#along with any additional buckets specified in var.buckets_to_scan.
   statement {
     actions = [
       "s3:ListBucket",
@@ -231,13 +233,13 @@ resource "aws_lambda_function" "update_clamav_definitions" {
     }
   }
 }
-
+#to automates the process of compressing the contents of the codee directory into a ZIP file named code.zip, which is stored in the same codee subdirector
 data "archive_file" "zip_the_python_1" {
   type        = "zip"
   source_dir  = "${path.module}/files/codee/"
   output_path = "${path.module}/files/codee/code.zip"
 }
-
+#deploys a Lambda function to AWS, configured to execute a Python script contained within a ZIP file. The function is designed for scanning files, likely for malware or viruses perform scan operations for files, handle notifications, and manage quarantined items.
 resource "aws_lambda_function" "scan_file" {
   filename         = "${path.module}/files/codee/code.zip"
   function_name    = local.clamav_scan_name
@@ -257,7 +259,9 @@ resource "aws_lambda_function" "scan_file" {
       infected_sns_topic_arn  = aws_sns_topic.infected_sns_topic[0].arn
       All_Notification        = var.All_Notification
       # All_Notification_arn =length(aws_sns_topic.All_Notification[0].arn) 
-      All_Notification_arn = length(aws_sns_topic.All_Notification) > 0 ? aws_sns_topic.All_Notification[0].arn : ""
+      All_Notification_arn = length(aws_sns_topic.All_Notification) > 0 ? aws_sns_topic.All_Notification[0].arn : ""      # checks if there are any elements in the list aws_sns_topic.All_Notification ,if condition is true,ARN is then assigned to the All_Notification_arn environment variable using array indexing [0].
+                                                                                                                                                                                                      # if false ,assigns an empty string "" to the All_Notification_arn
+      
       # ninad
       #All_Notification_arn = local.all_notification_arn       
       quarantine_bucket = var.quarantine_bucket
@@ -274,27 +278,29 @@ resource "aws_lambda_function" "scan_file" {
 # -----------------------------
 # Create Cloudwatch events with Lambda PErmissions
 # -----------------------------
+#create event to trigger lambda every 3 hrs 
 resource "aws_cloudwatch_event_rule" "every_three_hours" {
   name                = var.event_name
   description         = var.event_description
-  schedule_expression = var.event_schedule_expression
+  schedule_expression = var.event_schedule_expression    #check value of schedule_expression  in variable.tf
 }
-
+# target specifies that when this event occurs, it should invoke a Lambda function (update_clamav_definitions
 resource "aws_cloudwatch_event_target" "update_clamav_definitions" {
   rule      = aws_cloudwatch_event_rule.every_three_hours.name
   target_id = local.clamav_update_name
   arn       = aws_lambda_function.update_clamav_definitions.arn
 }
 
+#permission explicitly grants CloudWatch Events the ability to invoke  .update_clamav_definitions. lambda
 resource "aws_lambda_permission" "allow_cloudwatch_to_update_antivirus" {
   statement_id  = "AllowExecutionFromCloudWatch"
-  action        = var.lambda_action
+  action        = var.lambda_action     # check value in variable.tf
   function_name = aws_lambda_function.update_clamav_definitions.function_name
-  principal     = var.lambda_update_principal
+  principal     = var.lambda_update_principal  #check value in variable.tf
   source_arn    = aws_cloudwatch_event_rule.every_three_hours.arn
 }
 
-
+#permissions allow the Lambda function (scan_file) to be invoked by objects within those S3 buckets
 
 resource "aws_lambda_permission" "allow_terraform_bucket" {
   count         = length(var.buckets_to_scan)
@@ -302,21 +308,21 @@ resource "aws_lambda_permission" "allow_terraform_bucket" {
   action        = var.lambda_action
   function_name = aws_lambda_function.scan_file.arn
   principal     = var.lambda_scan_principal
-  source_arn    = "arn:aws:s3:::${element(var.buckets_to_scan, count.index)}"
+  source_arn    = "arn:aws:s3:::${element(var.buckets_to_scan, count.index)}"  # ARN of the S3 bucket that triggers the Lambda function.
 }
 
 # ---------------------------------
 # Allow the S3 bucket to send notifications to the lambda function
 # --------------------------------
-
+#notifications are configured to trigger a Lambda function (scan_file) whenever certain events occur within buckets.
 resource "aws_s3_bucket_notification" "new_file_notification" {
-  count  = length(var.buckets_to_scan)
-  bucket = element(var.buckets_to_scan, count.index)
+  count  = length(var.buckets_to_scan) #check value in variable.tf
+  bucket = element(var.buckets_to_scan, count.index) 
 
   lambda_function {
     id                  = 1
     lambda_function_arn = aws_lambda_function.scan_file.arn
-    events              = var.bucket_events
+    events              = var.bucket_events 
   }
 }
 
