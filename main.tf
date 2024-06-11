@@ -30,7 +30,7 @@ locals {
 # -----------------------------
 
 data "aws_caller_identity" "current" {}
-
+# creating log groups and streams (logs:CreateLogGroup, logs:CreateLogStream) and putting log events (logs:PutLogEvents) in AWS CloudWatch Logs for update-clamav-definitions lambda
 data "aws_iam_policy_document" "update" {
   statement {
     actions = [
@@ -44,6 +44,7 @@ data "aws_iam_policy_document" "update" {
     ]
     effect = "Allow"
   }
+  # grants permissions to list objects in an clamav_definitions S3 bucket 
   statement {
     actions = [
       "s3:ListBucket",
@@ -60,7 +61,7 @@ data "aws_iam_policy_document" "update" {
     effect = "Allow"
   }
 }
-
+## specifies statment that allows the AWS Lambda service to assume a role , policy is typically attached to roles that need to be assumed by AWS Lambda functions for them to access other AWS services or resources on behalf of the role owner.
 data "aws_iam_policy_document" "assume_role_policy" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -73,7 +74,7 @@ data "aws_iam_policy_document" "assume_role_policy" {
     }
   }
 }
-
+## creating log groups and streams (logs:CreateLogGroup, logs:CreateLogStream) and putting log events (logs:PutLogEvents) in AWS CloudWatch Logs for scan-bucket-file lambda 
 data "aws_iam_policy_document" "scan" {
   statement {
     actions = [
@@ -91,6 +92,7 @@ data "aws_iam_policy_document" "scan" {
     ]
     effect = "Allow"
   }
+#grants permissions Applies to a primary S3 bucket identified by clamav_definitions.bucket and an output bucket identified by ${aws_s3_bucket.output_bucket_name.bucket}, along with any additional buckets specified in var.buckets_to_scan.
   statement {
     actions = [
       "s3:ListBucket",
@@ -110,6 +112,7 @@ data "aws_iam_policy_document" "scan" {
     ]
     effect = "Allow"
   }
+##dynamic block to iterate over a list of buckets (var.buckets_to_scan) and a quarantine bucket (var.quarantine_bucket), applying similar S3 permissions to these additional buckets. 
   dynamic "statement" {
     for_each = concat(var.buckets_to_scan, [var.quarantine_bucket])
 
@@ -143,9 +146,10 @@ resource "aws_s3_bucket" "clamav_definitions" {
   bucket_prefix = local.clamav_definitions_bucket
 }
 
-
+##creation of multiple AWS S3 buckets, with each bucket's name taken from a predefined list (var.buckets_to_scan)
 resource "aws_s3_bucket" "buckets_to_scan" {
-  count = length(var.buckets_to_scan)
+  count = length(var.buckets_to_scan)  # create one instance of the aws_s3_bucket resource for each element in the list.
+
 
   bucket = var.buckets_to_scan[count.index]
 
@@ -154,7 +158,8 @@ resource "aws_s3_bucket" "buckets_to_scan" {
 # -----------------------------
 # Create IAM Roles for the Lambdas
 # -----------------------------
-
+#sets up IAM roles and policies for two distinct functions (scan-bucket-file and update-bucket)
+#Two pairs of IAM roles and policies are created, one for update operations and another for scan operations
 resource "aws_iam_role" "update" {
   name = local.clamav_update_name
 
@@ -175,7 +180,7 @@ resource "aws_iam_role_policy_attachment" "update" {
 resource "aws_iam_role" "scan" {
   name = local.clamav_scan_name
 
-  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
+  assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json  #Both roles use the same assume_role_policy document, likely specifying that they can be assumed by AWS services (lambda in this case)
 }
 
 resource "aws_iam_policy" "scan" {
@@ -192,7 +197,7 @@ resource "aws_iam_role_policy_attachment" "scan" {
 # -----------------------------
 # Create Lambdas
 # -----------------------------
-
+#configures and deploys a Lambda Layer containing the code or dependencies packaged in layer.zip. supports automatic updates based on changes to the layer's contents
 resource "aws_lambda_layer_version" "this" {
   layer_name          = local.layer_name
   filename            = "${path.module}/files/layer.zip"
@@ -200,13 +205,14 @@ resource "aws_lambda_layer_version" "this" {
 
   source_code_hash = base64sha256("${path.module}/files/layer.zip")
 }
+#automates the process of compressing the contents of the codee directory into a ZIP file named code.zip, which is stored in the same codee subdirectory. This can be useful for packaging application code or dependencies for deployment or sharing.
 
 data "archive_file" "zip_the_python" {
   type        = "zip"
   source_dir  = "${path.module}/files/codee/"
   output_path = "${path.module}/files/codee/code.zip"
 }
-
+#deploys a Lambda function named clamav_update_name with the code packaged in code.zip. It configures the function with a specific IAM role, handler, runtime, timeout etc enabling it to perform update operations for ClamAV definitions stored in an S3 bucket.
 resource "aws_lambda_function" "update_clamav_definitions" {
   filename         = "${path.module}/files/codee/code.zip"
   function_name    = local.clamav_update_name
